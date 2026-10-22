@@ -391,3 +391,4 @@ details summary { cursor: pointer; color: var(--accent-ink); }
   .user-chip #userName { display: none; }
   .user-chip { padding: 4px; }
 }
+.cred-box pre a { color: var(--accent-ink); font-weight: 700; }

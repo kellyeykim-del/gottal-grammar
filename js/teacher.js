@@ -163,9 +163,10 @@ window.TeacherDash = { create({ app, toast }) {
 
   function credentialBox(c) {
     const text = `[고딸영문법 학습 사이트]\n주소: ${siteUrl}\n아이디: ${c.login_id}\n비밀번호: ${c.password}`;
+    const shown = esc(text).replace(esc(siteUrl), `<a href="${esc(siteUrl)}" target="_blank" rel="noopener">${esc(siteUrl)}</a>`);
     return `<div class="cred-box pop">
       <div><strong>${esc(c.display_name)}</strong> 학생에게 아래 정보를 전달해 주세요.</div>
-      <pre id="credText">${esc(text)}</pre>
+      <pre id="credText">${shown}</pre>
       <button class="btn small" id="copyCred">📋 복사하기</button>
     </div>`;
   }
