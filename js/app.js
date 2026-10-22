@@ -286,6 +286,7 @@ window.GottalApp = { start(ctx) {
   }
 
   function gateMessage(lec) {
+    if (ctx.isTeacher) return '선생님 계정은 강의를 듣지 않아도 바로 테스트를 볼 수 있어요. (선생님의 응시 결과는 학생 기록에 포함되지 않아요)';
     if (canQuiz(lec)) return isPassed(lec) ? '이미 통과한 강의예요. 복습 삼아 다시 풀어봐도 좋아요.' : '강의를 다 들었다면 확인 테스트를 풀어보세요!';
     return `위 영상을 ${Math.round(WATCH_DONE_RATIO * 100)}% 이상 시청하면 테스트가 열려요. (건너뛴 구간은 시청으로 치지 않아요)`;
   }
