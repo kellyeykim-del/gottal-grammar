@@ -94,7 +94,7 @@
     $('#userAvatar').textContent = profile.display_name.trim().slice(0, 1);
     $('#accName').textContent = profile.display_name;
     $('#accLogin').textContent = profile.login_id;
-    $('#accRole').textContent = isTeacher ? '선생님' : '학생';
+    $('#accRole').textContent = isTeacher ? (profile.is_admin ? '선생님 (관리자)' : '선생님') : '학생';
 
     app = GottalApp.start({
       isTeacher,
@@ -109,7 +109,7 @@
     if (initial && !remote) Cloud.saveState(initial, { passed: 0, wrong: 0 }, true);
 
     if (isTeacher) {
-      teacherDash = TeacherDash.create({ app, toast: app.toast });
+      teacherDash = TeacherDash.create({ app, toast: app.toast, profile });
       teacherDash.show();
     } else {
       app.openCurrent();

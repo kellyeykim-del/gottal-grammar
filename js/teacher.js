@@ -1,5 +1,5 @@
 // 선생님 대시보드: 학생 계정 발급, 학생별 학습 기록 조회, 비밀번호 재설정/기록 초기화/삭제
-window.TeacherDash = { create({ app, toast }) {
+window.TeacherDash = { create({ app, toast, profile }) {
   const $ = (sel, root = document) => root.querySelector(sel);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const LECS = (window.LECTURES || []).map((l, idx) => ({ ...l, idx }));
@@ -135,7 +135,10 @@ window.TeacherDash = { create({ app, toast }) {
         </table></div>`
         : `<div class="empty"><div class="big-emoji">🧑‍🎓</div><p>아직 학생이 없어요. 위에서 학생 아이디를 발급해 주세요.</p></div>`}
       </section>
+
+      ${profile?.is_admin ? '<section class="card" id="teacherSection"><h2>👩‍🏫 선생님 계정</h2><p class="muted">불러오는 중…</p></section>' : ''}
     </div>`;
+    if (profile?.is_admin) loadTeachers();
 
     const f = $('#addForm');
     f.password.value = genPassword();
@@ -157,18 +160,110 @@ window.TeacherDash = { create({ app, toast }) {
       }
     });
     $('#refreshBtn').addEventListener('click', show);
-    $('#copyCred')?.addEventListener('click', () => copyText($('#credText').textContent));
+    bindCopy();
     document.querySelectorAll('tr.clickable').forEach((tr) => tr.addEventListener('click', () => showStudent(tr.dataset.id)));
   }
 
-  function credentialBox(c) {
-    const text = `[고딸영문법 학습 사이트]\n주소: ${siteUrl}\n아이디: ${c.login_id}\n비밀번호: ${c.password}`;
+  // key: 같은 화면에 안내문이 둘 이상일 때 id 구분용 ('' = 학생, 'T' = 선생님)
+  function credentialBox(c, key = '') {
+    const forTeacher = key === 'T';
+    const text = forTeacher
+      ? `[고딸영문법 학습 사이트 - 선생님용]\n주소: ${siteUrl}\n아이디: ${c.login_id}\n비밀번호: ${c.password}\n로그인 후 "학생 관리"에서 학생 아이디를 발급할 수 있어요.`
+      : `[고딸영문법 학습 사이트]\n주소: ${siteUrl}\n아이디: ${c.login_id}\n비밀번호: ${c.password}`;
     const shown = esc(text).replace(esc(siteUrl), `<a href="${esc(siteUrl)}" target="_blank" rel="noopener">${esc(siteUrl)}</a>`);
     return `<div class="cred-box pop">
-      <div><strong>${esc(c.display_name)}</strong> 학생에게 아래 정보를 전달해 주세요.</div>
-      <pre id="credText">${shown}</pre>
-      <button class="btn small" id="copyCred">📋 복사하기</button>
+      <div><strong>${esc(c.display_name)}</strong> ${forTeacher ? '선생님께' : '학생에게'} 아래 정보를 전달해 주세요.</div>
+      <pre id="credText${key}">${shown}</pre>
+      <button class="btn small" id="copyCred${key}">📋 복사하기</button>
     </div>`;
+  }
+  function bindCopy(key = '') {
+    $(`#copyCred${key}`)?.addEventListener('click', () => copyText($(`#credText${key}`).textContent));
+  }
+
+  // ---------------------------------------------------------------- 선생님 계정 관리 (관리자만)
+  async function loadTeachers(created) {
+    const box = $('#teacherSection');
+    if (!box) return;
+    let teachers = [];
+    try {
+      teachers = (await Cloud.admin('list_teachers')).teachers;
+    } catch (e) {
+      box.innerHTML = `<h2>👩‍🏫 선생님 계정</h2><p class="muted">불러오지 못했어요: ${esc(e.message)}</p>`;
+      return;
+    }
+    const rows = teachers.map((t) => `<tr>
+        <td><strong>${esc(t.display_name)}</strong><div class="muted small">${esc(t.login_id)}</div></td>
+        <td class="num">${t.students}명</td>
+        <td class="small">${esc(new Date(t.created_at).toLocaleDateString('ko-KR'))}</td>
+        <td class="num"><button class="btn small" data-tpw="${t.id}">🔑 비밀번호</button> <button class="btn small danger" data-tdel="${t.id}">삭제</button></td>
+      </tr>`).join('');
+    box.innerHTML = `
+      <h2>👩‍🏫 선생님 계정 발급 <span class="tag accent">관리자</span></h2>
+      <p class="muted small-note">다른 선생님께 이 앱을 드릴 때 사용하세요. 발급받은 선생님은 같은 주소로 로그인해 <b>자기 학생만</b> 발급·관리할 수 있어요. (서로의 학생은 보이지 않아요)</p>
+      <form id="addTeacherForm" class="add-form">
+        <label>이름<input name="display_name" placeholder="예: 박선생" maxlength="30" required></label>
+        <label>아이디<input name="login_id" placeholder="예: teacher.park" autocapitalize="off" spellcheck="false" required></label>
+        <label>비밀번호
+          <span class="pw-row"><input name="password" required minlength="6"><button type="button" class="btn small" id="genPwT">자동 생성</button></span>
+        </label>
+        <button class="btn primary" type="submit">발급하기</button>
+      </form>
+      <div class="form-error" id="addTeacherError"></div>
+      <div id="teacherPwArea"></div>
+      ${created ? credentialBox(created, 'T') : ''}
+      ${teachers.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data-table">
+        <thead><tr><th>선생님</th><th class="num">학생</th><th>발급일</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : '<p class="muted small-note" style="margin-top:10px">아직 발급한 선생님 계정이 없어요.</p>'}`;
+
+    const f = $('#addTeacherForm');
+    f.password.value = genPassword();
+    $('#genPwT').addEventListener('click', () => { f.password.value = genPassword(); });
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = f.querySelector('button[type=submit]');
+      $('#addTeacherError').textContent = '';
+      btn.disabled = true;
+      const payload = { display_name: f.display_name.value.trim(), login_id: f.login_id.value.trim().toLowerCase(), password: f.password.value };
+      try {
+        await Cloud.admin('create_teacher', payload);
+        toast(`${payload.display_name} 선생님 계정을 발급했어요`);
+        await loadTeachers(payload);
+      } catch (err) {
+        $('#addTeacherError').textContent = err.message;
+        btn.disabled = false;
+      }
+    });
+    bindCopy('T');
+    box.querySelectorAll('[data-tpw]').forEach((b) => b.addEventListener('click', () => {
+      const t = teachers.find((x) => x.id === b.dataset.tpw);
+      $('#teacherPwArea').innerHTML = `<form id="tpwForm" class="add-form" style="margin-top:12px">
+          <label>${esc(t.display_name)} 선생님 새 비밀번호<span class="pw-row"><input name="password" value="${genPassword()}" minlength="6" required></span></label>
+          <button class="btn primary" type="submit">재설정</button>
+          <button class="btn" type="button" id="tpwCancel">취소</button>
+        </form><div class="form-error" id="tpwError"></div>`;
+      $('#tpwCancel').addEventListener('click', () => { $('#teacherPwArea').innerHTML = ''; });
+      $('#tpwForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = e.target.password.value;
+        try {
+          await Cloud.admin('reset_teacher_password', { user_id: t.id, password: pw });
+          $('#teacherPwArea').innerHTML = credentialBox({ display_name: t.display_name, login_id: t.login_id, password: pw }, 'T');
+          bindCopy('T');
+          toast('비밀번호를 바꿨어요');
+        } catch (err) { $('#tpwError').textContent = err.message; }
+      });
+    }));
+    box.querySelectorAll('[data-tdel]').forEach((b) => b.addEventListener('click', async () => {
+      const t = teachers.find((x) => x.id === b.dataset.tdel);
+      if (t.students > 0) { toast(`${t.display_name} 선생님에게 학생이 ${t.students}명 있어서 삭제할 수 없어요`); return; }
+      if (!confirm(`${t.display_name} 선생님 계정을 삭제할까요?`)) return;
+      try {
+        await Cloud.admin('delete_teacher', { user_id: t.id });
+        toast('선생님 계정을 삭제했어요');
+        await loadTeachers();
+      } catch (err) { toast(err.message); }
+    }));
   }
 
   // ---------------------------------------------------------------- detail view
