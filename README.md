@@ -7,7 +7,10 @@ YouTube 재생목록 [[1단계] 고딸영문법1](https://www.youtube.com/playli
 
 ## 접속 주소
 
-👉 **https://kellyeykim-del.github.io/gottal-grammar/**
+👉 **https://gottal-grammar.vercel.app** (Vercel)
+
+같은 앱을 https://kellyeykim-del.github.io/gottal-grammar/ (GitHub Pages)에서도 쓸 수 있어요. 두 주소는 계정과 학습 기록을 함께 씁니다.
+`main` 브랜치에 push하면 두 곳 모두 자동으로 다시 배포됩니다.
 
 ## 선생님
 
