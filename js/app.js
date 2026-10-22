@@ -1,9 +1,11 @@
-(() => {
+// 강의 시청 + 확인 테스트 앱 본체. 로그인 후 main.js가 GottalApp.start(ctx)로 시작한다.
+//  ctx = { isTeacher, initialState, persist(state, summary, immediate), onAttempt(attempt) }
+window.GottalApp = { start(ctx) {
   'use strict';
 
   const PLAYLIST_ID = 'PL_Dpt0EBpdN4e5pPoRnkUXkuvrTqWKJlv';
-  const STORE_KEY = 'gottal-grammar-1';
   const WATCH_DONE_RATIO = 0.85; // 영상의 85% 이상 시청하면 "시청 완료"
+  const PASS_RATE = window.APP_CONFIG.PASS_RATE;
 
   const LECS = (window.LECTURES || []).map((l, idx) => ({ ...l, idx }));
   const byId = Object.fromEntries(LECS.map((l) => [l.id, l]));
@@ -12,29 +14,20 @@
   const defaultState = () => ({
     lectures: {},          // id -> { seen, duration, manual, best, passed, attempts }
     wrong: {},             // "id#q" -> { id, q, ts }
-    settings: { freeMode: false, passRate: 100 },
     current: null,
   });
+  // 선생님은 모든 강의를 자유롭게 미리 볼 수 있다
+  const settings = { freeMode: !!ctx.isTeacher, passRate: PASS_RATE };
   const passText = (rate) => (rate >= 100 ? '모두 맞혀야 통과' : `${rate}% 이상 통과`);
 
-  let state = load();
+  const init = ctx.initialState || {};
+  let state = { ...defaultState(), lectures: init.lectures || {}, wrong: init.wrong || {}, current: init.current || null };
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (raw) {
-        const s = JSON.parse(raw);
-        const d = defaultState();
-        const settings = { ...d.settings, ...(s.settings || {}) };
-        // 사용자가 직접 바꾼 적이 없으면 기본 통과 기준(100%)을 따른다
-        if (!settings.passRateChosen) settings.passRate = d.settings.passRate;
-        return { ...d, ...s, settings };
-      }
-    } catch (e) { /* storage unavailable */ }
-    return defaultState();
+  function summary() {
+    return { passed: LECS.filter((l) => state.lectures[l.id]?.passed).length, wrong: Object.keys(state.wrong).length };
   }
-  function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  function save(immediate = false) {
+    ctx.persist(state, summary(), immediate);
   }
   function rec(id) {
     if (!state.lectures[id]) state.lectures[id] = { seen: '', duration: 0, manual: false, best: null, passed: false, attempts: 0 };
@@ -57,8 +50,8 @@
   }
   const isWatched = (lec) => { const r = state.lectures[lec.id]; return !!r && (r.manual || r.passed || watchRatio(lec) >= WATCH_DONE_RATIO); };
   const isPassed = (lec) => !!state.lectures[lec.id]?.passed;
-  const isUnlocked = (lec) => state.settings.freeMode || lec.idx === 0 || isPassed(lec) || isPassed(LECS[lec.idx - 1]);
-  const canQuiz = (lec) => state.settings.freeMode || isWatched(lec);
+  const isUnlocked = (lec) => settings.freeMode || lec.idx === 0 || isPassed(lec) || isPassed(LECS[lec.idx - 1]);
+  const canQuiz = (lec) => settings.freeMode || isWatched(lec);
   const ytUrl = (lec) => `https://www.youtube.com/watch?v=${lec.id}&list=${PLAYLIST_ID}&index=${lec.idx + 1}`;
 
   let toastTimer;
@@ -79,9 +72,9 @@
     const badge = $('#wrongCount');
     badge.textContent = wc;
     badge.classList.toggle('zero', wc === 0);
-    $('#sidebarHint').textContent = state.settings.freeMode
+    $('#sidebarHint').textContent = settings.freeMode
       ? '자유 모드: 모든 강의가 열려 있어요'
-      : `순서대로 테스트를 ${state.settings.passRate >= 100 ? '모두 맞혀야' : `${state.settings.passRate}% 이상 맞혀야`} 다음 강의가 열려요`;
+      : `순서대로 테스트를 ${settings.passRate >= 100 ? '모두 맞혀야' : `${settings.passRate}% 이상 맞혀야`} 다음 강의가 열려요`;
   }
 
   function renderSidebar() {
@@ -152,7 +145,7 @@
   function mountPlayer(lec) {
     const host = $('#ytPlayer');
     if (!host) return;
-    if (!ytReady || !window.YT || !YT.Player) return; // API 로딩 후 onYouTubeIframeAPIReady에서 다시 호출
+    if (!window.YT || !YT.Player) return; // API 로딩 후 onYouTubeIframeAPIReady에서 다시 호출
     destroyPlayer();
     playerFor = lec.id;
     player = new YT.Player('ytPlayer', {
@@ -226,6 +219,7 @@
   function openLecture(id, opts = {}) {
     const lec = byId[id];
     if (!lec) return;
+    ctx.onNavigate?.('lecture');
     currentView = 'lecture';
     state.current = id;
     save();
@@ -273,7 +267,7 @@
       </div>
 
       <section class="card" id="quizCard">
-        <h2>✍️ 확인 테스트 <span class="muted" style="font-size:14px;font-weight:500">· ${lec.quiz.length}문제 · ${passText(state.settings.passRate)}</span></h2>
+        <h2>✍️ 확인 테스트 <span class="muted" style="font-size:14px;font-weight:500">· ${lec.quiz.length}문제 · ${passText(settings.passRate)}</span></h2>
         <div class="quiz-gate">
           <p id="gateText">${esc(gateMessage(lec))}</p>
           <button class="btn primary big" id="startQuizBtn" ${canQuiz(lec) ? '' : 'disabled'}>${r.attempts ? '다시 풀기' : '테스트 시작'}</button>
@@ -440,7 +434,7 @@
   // 키보드: 숫자키로 보기 선택, Enter로 확인/다음
   document.addEventListener('keydown', (e) => {
     if (!quiz || e.isComposing) return;
-    if ($('#settingsDialog').open) return;
+    if (document.querySelector('dialog[open]')) return;
     const it = quiz.items[quiz.i];
     if (!it) return;
     if (e.key === 'Enter') {
@@ -466,20 +460,29 @@
     const r = rec(lec.id);
     const correct = results.filter((x) => x.ok).length;
     const pct = Math.round((correct / results.length) * 100);
-    const pass = pct >= state.settings.passRate;
+    const pass = pct >= settings.passRate;
     const firstPass = pass && !r.passed;
     r.attempts = (r.attempts || 0) + 1;
     r.best = Math.max(r.best ?? 0, pct);
     if (pass) r.passed = true;
     recordWrong(results);
-    save();
+    save(true);
+    ctx.onAttempt?.({
+      lecture_id: lec.id,
+      lecture_no: lec.no,
+      correct,
+      total: results.length,
+      pct,
+      passed: pass,
+      wrong: results.filter((x) => !x.ok).map((x) => ({ q: x.it.qi, mine: x.mine })),
+    });
 
     const next = LECS[lec.idx + 1];
     const wrongs = results.filter((x) => !x.ok);
     const card = $('#quizCard');
     card.innerHTML = `<div class="result pop">
         <div class="score">${correct}<small> / ${results.length}</small></div>
-        <div class="verdict ${pass ? 'pass' : 'fail'}">${pass ? (pct === 100 ? '만점! 완벽해요 🏆' : '통과! 잘했어요 🎉') : (state.settings.passRate >= 100 ? '조금만 더! 모두 맞혀야 통과예요' : `조금만 더! ${state.settings.passRate}% 이상이면 통과예요`)}</div>
+        <div class="verdict ${pass ? 'pass' : 'fail'}">${pass ? (pct === 100 ? '만점! 완벽해요 🏆' : '통과! 잘했어요 🎉') : (settings.passRate >= 100 ? '조금만 더! 모두 맞혀야 통과예요' : `조금만 더! ${settings.passRate}% 이상이면 통과예요`)}</div>
         <div class="muted">${pct}% · 최고 ${r.best}% · 응시 ${r.attempts}회</div>
         <div class="result-actions">
           ${pass && next ? `<button class="btn primary big" id="goNextBtn">다음 강의 ▶ [${esc(next.no)}]</button>` : ''}
@@ -528,6 +531,7 @@
   }
 
   function openWrongNote() {
+    ctx.onNavigate?.('wrong');
     currentView = 'wrong';
     destroyPlayer();
     renderSidebar();
@@ -583,7 +587,7 @@
 
   function finishWrongQuiz(results) {
     recordWrong(results);
-    save();
+    save(true);
     renderHeader();
     const correct = results.filter((x) => x.ok).length;
     const left = wrongEntries().length;
@@ -603,75 +607,33 @@
 
   $('#wrongNoteBtn').addEventListener('click', openWrongNote);
 
-  // ---------------------------------------------------------------- settings
-  const dlg = $('#settingsDialog');
-  $('#settingsBtn').addEventListener('click', () => {
-    $('#freeMode').checked = state.settings.freeMode;
-    $('#passRate').value = String(state.settings.passRate);
-    dlg.showModal();
-  });
-  $('#freeMode').addEventListener('change', (e) => {
-    state.settings.freeMode = e.target.checked;
-    save(); refresh();
-  });
-  $('#passRate').addEventListener('change', (e) => {
-    state.settings.passRate = Number(e.target.value);
-    state.settings.passRateChosen = true;
-    save(); refresh();
-  });
-  $('#exportBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `gottal-grammar-progress-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  });
-  $('#importBtn').addEventListener('click', () => $('#importFile').click());
-  $('#importFile').addEventListener('change', async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    try {
-      const s = JSON.parse(await f.text());
-      if (!s || typeof s !== 'object' || !s.lectures) throw new Error('bad');
-      state = { ...defaultState(), ...s, settings: { ...defaultState().settings, ...(s.settings || {}) } };
-      save(); refresh();
-      toast('진도를 불러왔어요');
-    } catch (err) {
-      toast('올바른 진도 파일이 아니에요');
-    }
-    e.target.value = '';
-  });
-  $('#resetBtn').addEventListener('click', () => {
-    if (!confirm('모든 시청 기록, 점수, 오답노트를 지울까요? 되돌릴 수 없어요.')) return;
-    state = defaultState();
-    save();
-    dlg.close();
-    openLecture(LECS[0].id);
-    toast('진도를 초기화했어요');
-  });
-
-  function refresh() {
-    renderHeader();
-    if (currentView === 'wrong') { openWrongNote(); return; }
-    const lec = byId[state.current];
-    if (lec && isUnlocked(lec)) openLecture(lec.id);
-    else openLecture(firstOpenLecture().id);
-  }
-
   function firstOpenLecture() {
     return LECS.find((l) => isUnlocked(l) && !isPassed(l)) || LECS[LECS.length - 1];
   }
 
   // ---------------------------------------------------------------- boot
-  window.addEventListener('beforeunload', save);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('beforeunload', () => save(true));
 
   if (location.protocol === 'file:') {
     setTimeout(() => toast('파일로 직접 열면 YouTube 영상이 안 나올 수 있어요. start.bat으로 실행하세요.'), 600);
   }
 
-  const start = byId[state.current] && isUnlocked(byId[state.current]) ? byId[state.current] : firstOpenLecture();
   renderHeader();
-  openLecture(start.id);
-})();
+
+  // main.js(선생님 대시보드 전환 등)에서 쓰는 API
+  return {
+    toast,
+    openCurrent() {
+      const lec = byId[state.current] && isUnlocked(byId[state.current]) ? byId[state.current] : firstOpenLecture();
+      openLecture(lec.id);
+    },
+    openWrongNote,
+    // 다른 화면(대시보드)으로 나갈 때: 영상·퀴즈 정리
+    leave() {
+      destroyPlayer();
+      quiz = null;
+      currentView = 'other';
+      save(true);
+    },
+  };
+} };
