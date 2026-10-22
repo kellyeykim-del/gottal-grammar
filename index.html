@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>고딸영문법 1단계 · 강의 & 확인 테스트</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="강의 목록 열기">☰</button>
+    <div class="brand">
+      <span class="brand-mark">G</span>
+      <div>
+        <div class="brand-title">고딸영문법 1단계</div>
+        <div class="brand-sub">주어 · 동사 · 명사 · 관사 · 대명사 · 형용사 · 부사</div>
+      </div>
+    </div>
+    <div class="overall">
+      <div class="overall-label"><span id="overallText">0 / 61 통과</span></div>
+      <div class="bar"><div class="bar-fill" id="overallBar"></div></div>
+    </div>
+    <nav class="top-actions">
+      <button class="chip" id="wrongNoteBtn">오답노트 <span class="badge" id="wrongCount">0</span></button>
+      <button class="icon-btn" id="settingsBtn" aria-label="설정">⚙</button>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <strong>강의 목록</strong>
+        <span class="muted" id="sidebarHint">순서대로 통과하면 다음 강의가 열려요</span>
+      </div>
+      <div id="lectureList" class="lecture-list"></div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main" id="main"></main>
+  </div>
+
+  <dialog id="settingsDialog" class="dialog">
+    <form method="dialog">
+      <h2>설정</h2>
+      <label class="toggle-row">
+        <input type="checkbox" id="freeMode">
+        <span>
+          <strong>자유 모드</strong><br>
+          <small class="muted">모든 강의를 순서와 상관없이 열고, 시청 여부와 상관없이 테스트를 볼 수 있어요.</small>
+        </span>
+      </label>
+      <label class="toggle-row">
+        <span>
+          <strong>통과 기준</strong><br>
+          <small class="muted">이 점수 이상이면 다음 강의가 열려요.</small>
+        </span>
+        <select id="passRate">
+          <option value="100">100% (모두 정답)</option>
+          <option value="80">80%</option>
+          <option value="60">60%</option>
+        </select>
+      </label>
+      <div class="settings-actions">
+        <button type="button" class="btn ghost" id="exportBtn">진도 내보내기</button>
+        <button type="button" class="btn ghost" id="importBtn">진도 불러오기</button>
+        <input type="file" id="importFile" accept="application/json" hidden>
+        <button type="button" class="btn danger" id="resetBtn">진도 초기화</button>
+      </div>
+      <div class="dialog-foot">
+        <button class="btn primary" value="close">닫기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="data/lectures-1.js"></script>
+  <script src="data/lectures-2.js"></script>
+  <script src="data/lectures-3.js"></script>
+  <script src="data/lectures-4.js"></script>
+  <script src="js/app.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
