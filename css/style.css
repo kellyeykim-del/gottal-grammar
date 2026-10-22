@@ -380,7 +380,7 @@ body.view-dashboard #dashBtn { display: none; }
 .wrong-list li { margin: 4px 0; }
 .wrong-list .ri-mine { color: var(--bad); }
 details summary { cursor: pointer; color: var(--accent-ink); }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 16px; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 600; }
 .stat-value { font-size: 26px; font-weight: 800; margin: 2px 0 6px; }
@@ -392,3 +392,56 @@ details summary { cursor: pointer; color: var(--accent-ink); }
   .user-chip { padding: 4px; }
 }
 .cred-box pre a { color: var(--accent-ink); font-weight: 700; }
+
+/* ---------- 앱 전용 플레이어 (YouTube로 나가는 링크 차단) ---------- */
+.player-shield {
+  position: absolute; inset: 0; z-index: 2; cursor: pointer;
+  display: grid; place-items: center; background: transparent; transition: background .2s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.player-shield .big-play {
+  width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; font-size: 30px; padding-left: 5px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35); opacity: 0; transform: scale(.9); transition: .2s;
+}
+/* 멈춤/종료 상태에서는 YouTube의 추천 영상·제목 위를 덮어 보이지 않게 */
+.player-shield.paused { background: rgba(10, 8, 5, .55); }
+.player-shield.paused .big-play { opacity: 1; transform: none; }
+.player-wrap:fullscreen { aspect-ratio: auto; width: 100vw; height: 100vh; }
+.player-wrap:-webkit-full-screen { aspect-ratio: auto; width: 100vw; height: 100vh; }
+.pctrl {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  border-bottom: 1px solid var(--line); background: var(--surface-2);
+}
+.pc-btn {
+  min-width: 38px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); font-size: 14px; font-weight: 700; flex: none;
+}
+.pc-btn:hover { background: var(--accent-soft); }
+#pcPlay { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 44px; }
+#pcSeek { flex: 1; min-width: 60px; accent-color: var(--accent); }
+.pc-time { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+#pcSpeed { height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; padding: 0 4px; }
+@media (max-width: 520px) {
+  .pctrl { flex-wrap: wrap; }
+  #pcSeek { order: -1; flex-basis: 100%; }
+  .pc-time { margin-right: auto; }
+}
+/* 휴대폰: 학생 목록은 핵심 열(학생·진도·오답·마지막 학습)만 */
+@media (max-width: 640px) {
+  .student-table th:nth-child(3), .student-table td:nth-child(3),
+  .student-table th:nth-child(4), .student-table td:nth-child(4) { display: none; }
+  .student-table td, .student-table th { padding: 9px 6px; }
+  .progress-cell { min-width: 90px; }
+  .data-table { font-size: 13px; }
+}
+.brand { min-width: 0; }
+.brand > div { min-width: 0; }
+.brand-title { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) {
+  .top-actions { gap: 6px; flex: none; }
+  .top-actions .chip { padding: 6px 10px; font-size: 13px; }
+  .pctrl { gap: 6px; padding: 8px 10px; }
+  .pc-btn { min-width: 34px; padding: 0 6px; }
+}
+@media (max-width: 420px) { #pcBack { display: none; } }

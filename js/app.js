@@ -52,7 +52,6 @@ window.GottalApp = { start(ctx) {
   const isPassed = (lec) => !!state.lectures[lec.id]?.passed;
   const isUnlocked = (lec) => settings.freeMode || lec.idx === 0 || isPassed(lec) || isPassed(LECS[lec.idx - 1]);
   const canQuiz = (lec) => settings.freeMode || isWatched(lec);
-  const ytUrl = (lec) => `https://www.youtube.com/watch?v=${lec.id}&list=${PLAYLIST_ID}&index=${lec.idx + 1}`;
 
   let toastTimer;
   function toast(msg) {
@@ -126,20 +125,22 @@ window.GottalApp = { start(ctx) {
   $('#scrim').addEventListener('click', closeDrawer);
 
   // ---------------------------------------------------------------- YouTube player
-  let ytReady = false;
+  // 영상은 앱 안에서만 본다: YouTube 자체 컨트롤/링크는 끄고, 투명 막(shield)으로 영상 위 클릭을 막은 뒤
+  // 재생·탐색·배속·음소거·전체화면은 앱의 자체 컨트롤로 제공한다.
   let player = null;
   let playerFor = null;
   let lastT = null;
   let saveTick = 0;
+  let seeking = false;
+  let lastState = -1;
 
   window.onYouTubeIframeAPIReady = () => {
-    ytReady = true;
     if (currentView === 'lecture' && state.current) mountPlayer(byId[state.current]);
   };
 
   function destroyPlayer() {
     if (player && player.destroy) { try { player.destroy(); } catch (e) { /* ignore */ } }
-    player = null; playerFor = null; lastT = null;
+    player = null; playerFor = null; lastT = null; lastState = -1;
   }
 
   function mountPlayer(lec) {
@@ -150,20 +151,96 @@ window.GottalApp = { start(ctx) {
     playerFor = lec.id;
     player = new YT.Player('ytPlayer', {
       videoId: lec.id,
-      playerVars: { rel: 0, playsinline: 1, modestbranding: 1, origin: location.origin },
+      playerVars: {
+        controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, modestbranding: 1,
+        iv_load_policy: 3, cc_load_policy: 0, origin: location.origin,
+      },
       events: {
+        onReady: () => updateControls(),
         onStateChange: (ev) => {
+          lastState = ev.data;
           if (ev.data !== 1) lastT = null;
           if (ev.data === 0) { save(); updateWatchUI(lec); }
+          updateControls();
         },
       },
     });
+    bindControls();
+  }
+
+  const fmtTime = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+  function playerCall(fn, ...args) {
+    if (!player || typeof player[fn] !== 'function') return undefined;
+    try { return player[fn](...args); } catch (e) { return undefined; }
+  }
+
+  function togglePlay() {
+    const st = playerCall('getPlayerState');
+    if (st === 1 || st === 3) { playerCall('pauseVideo'); return; }
+    if (st === 0) playerCall('seekTo', 0, true);
+    playerCall('playVideo');
+    // 일부 모바일 브라우저는 소리 있는 재생을 막는다 → 음소거로 재생하고 안내
+    setTimeout(() => {
+      const s = playerCall('getPlayerState');
+      if (s !== 1 && s !== 3 && !playerCall('isMuted')) {
+        playerCall('mute');
+        playerCall('playVideo');
+        toast('🔇 음소거로 재생했어요. 소리 버튼을 눌러 소리를 켜세요.');
+        setTimeout(updateControls, 300);
+      }
+    }, 1500);
+  }
+
+  function toggleFullscreen() {
+    const wrap = $('#playerWrap');
+    if (!wrap) return;
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else (wrap.requestFullscreen || wrap.webkitRequestFullscreen)?.call(wrap);
+  }
+
+  function bindControls() {
+    $('#playerShield').addEventListener('click', togglePlay);
+    $('#playerShield').addEventListener('dblclick', toggleFullscreen);
+    $('#playerShield').addEventListener('contextmenu', (e) => e.preventDefault());
+    $('#pcPlay').addEventListener('click', togglePlay);
+    $('#pcBack').addEventListener('click', () => { lastT = null; playerCall('seekTo', Math.max(0, (playerCall('getCurrentTime') || 0) - 10), true); });
+    $('#pcMute').addEventListener('click', () => { playerCall(playerCall('isMuted') ? 'unMute' : 'mute'); setTimeout(updateControls, 100); });
+    $('#pcSpeed').addEventListener('change', (e) => playerCall('setPlaybackRate', Number(e.target.value)));
+    const fsBtn = $('#pcFull');
+    if (!(document.fullscreenEnabled || document.webkitFullscreenEnabled)) fsBtn.hidden = true;
+    fsBtn.addEventListener('click', toggleFullscreen);
+    const seek = $('#pcSeek');
+    seek.addEventListener('input', () => { seeking = true; $('#pcTime').textContent = `${fmtTime(seek.value)} / ${fmtTime(seek.max)}`; });
+    seek.addEventListener('change', () => { seeking = false; lastT = null; playerCall('seekTo', Number(seek.value), true); });
+  }
+
+  function updateControls() {
+    if (!$('#pcPlay')) return;
+    const st = playerCall('getPlayerState');
+    const playing = st === 1 || st === 3;
+    $('#pcPlay').textContent = playing ? '❚❚' : st === 0 ? '↻' : '▶';
+    $('#pcPlay').setAttribute('aria-label', playing ? '일시정지' : '재생');
+    const shield = $('#playerShield');
+    shield.classList.toggle('paused', !playing);
+    $('#bigPlay').textContent = st === 0 ? '↻' : '▶';
+    const d = playerCall('getDuration') || 0;
+    const t = playerCall('getCurrentTime') || 0;
+    const seek = $('#pcSeek');
+    if (d > 0) seek.max = Math.floor(d);
+    if (!seeking) {
+      seek.value = Math.floor(t);
+      $('#pcTime').textContent = `${fmtTime(t)} / ${fmtTime(d)}`;
+    }
+    $('#pcMute').textContent = playerCall('isMuted') ? '🔇' : '🔊';
   }
 
   setInterval(() => {
     if (!player || !player.getPlayerState || !playerFor) return;
     let st;
     try { st = player.getPlayerState(); } catch (e) { return; }
+    updateControls();
     if (st !== 1) { lastT = null; return; }
     const lec = byId[playerFor];
     const r = rec(lec.id);
@@ -198,7 +275,7 @@ window.GottalApp = { start(ctx) {
     const done = isWatched(lec);
     const label = $('#watchPct');
     if (!label) return;
-    label.textContent = rec(lec.id).manual && pct < WATCH_DONE_RATIO * 100 ? 'YouTube에서 시청함' : `${pct}%`;
+    label.textContent = done ? `시청 완료 ✓` : `${pct}%`;
     const fill = $('#watchFill');
     fill.style.width = `${done ? 100 : pct}%`;
     fill.classList.toggle('done', done);
@@ -210,7 +287,7 @@ window.GottalApp = { start(ctx) {
 
   function gateMessage(lec) {
     if (canQuiz(lec)) return isPassed(lec) ? '이미 통과한 강의예요. 복습 삼아 다시 풀어봐도 좋아요.' : '강의를 다 들었다면 확인 테스트를 풀어보세요!';
-    return `영상을 ${Math.round(WATCH_DONE_RATIO * 100)}% 이상 시청하면 테스트가 열려요. YouTube에서 봤다면 "YouTube에서 봤어요"를 눌러주세요.`;
+    return `위 영상을 ${Math.round(WATCH_DONE_RATIO * 100)}% 이상 시청하면 테스트가 열려요. (건너뛴 구간은 시청으로 치지 않아요)`;
   }
 
   // ---------------------------------------------------------------- views
@@ -250,18 +327,25 @@ window.GottalApp = { start(ctx) {
       </div>
 
       <div class="player-card">
-        <div class="player-wrap">
-          <div id="ytPlayer"><div class="player-fallback">플레이어를 불러오는 중…<br><br>
-            영상이 나오지 않으면 아래 "YouTube에서 열기"를 이용하세요.</div></div>
+        <div class="player-wrap" id="playerWrap">
+          <div id="ytPlayer"><div class="player-fallback">플레이어를 불러오는 중…</div></div>
+          <div class="player-shield paused" id="playerShield"><span class="big-play" id="bigPlay">▶</span></div>
+        </div>
+        <div class="pctrl">
+          <button class="pc-btn" id="pcPlay" aria-label="재생">▶</button>
+          <button class="pc-btn" id="pcBack" aria-label="10초 뒤로" title="10초 뒤로">↺10</button>
+          <input type="range" id="pcSeek" min="0" max="${lenToSec(lec.len)}" value="0" step="1" aria-label="재생 위치">
+          <span class="pc-time" id="pcTime">0:00 / ${esc(lec.len)}</span>
+          <select id="pcSpeed" aria-label="재생 속도">
+            <option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option>
+          </select>
+          <button class="pc-btn" id="pcMute" aria-label="소리">🔊</button>
+          <button class="pc-btn" id="pcFull" aria-label="전체화면" title="전체화면">⛶</button>
         </div>
         <div class="watch-row">
           <div class="watch-progress">
             <div class="watch-label"><span>시청 진도</span><strong id="watchPct">0%</strong></div>
             <div class="bar"><div class="bar-fill" id="watchFill"></div></div>
-          </div>
-          <div class="watch-actions">
-            <a class="btn small" href="${ytUrl(lec)}" target="_blank" rel="noopener">YouTube에서 열기 ↗</a>
-            <button class="btn small" id="manualBtn" ${r.manual || isWatched(lec) ? 'disabled' : ''}>YouTube에서 봤어요</button>
           </div>
         </div>
       </div>
@@ -284,14 +368,6 @@ window.GottalApp = { start(ctx) {
     </div>`;
 
     $('#startQuizBtn').addEventListener('click', () => startLectureQuiz(lec));
-    $('#manualBtn').addEventListener('click', () => {
-      rec(lec.id).manual = true;
-      save();
-      updateWatchUI(lec);
-      $('#manualBtn').disabled = true;
-      renderSidebar();
-      toast('시청 완료로 표시했어요. 테스트를 풀어보세요!');
-    });
     bindNav();
     updateWatchUI(lec);
     mountPlayer(lec);

@@ -129,7 +129,7 @@ window.TeacherDash = { create({ app, toast }) {
 
       <section class="card">
         <h2>📊 학습 현황</h2>
-        ${students.length ? `<div class="table-wrap"><table class="data-table">
+        ${students.length ? `<div class="table-wrap"><table class="data-table student-table">
           <thead><tr><th>학생</th><th>진도</th><th>지금 공부할 강의</th><th class="num">응시</th><th class="num">오답</th><th>마지막 학습</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`
