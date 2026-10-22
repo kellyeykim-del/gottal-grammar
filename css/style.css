@@ -295,7 +295,7 @@ h1.lec-title { font-size: 24px; line-height: 1.35; margin: 0; letter-spacing: -.
 }
 @media (max-width: 640px) {
   .topbar { padding: 8px 16px; gap: 10px; flex-wrap: wrap; }
-  .brand-sub, .brand-mark { display: none; }
+  .brand-sub, .topbar .brand-mark { display: none; }
   .brand { flex: 1; }
   .top-actions { margin-left: auto; }
   .overall { order: 5; max-width: none; flex-basis: 100%; }
