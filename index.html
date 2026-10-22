@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>고딸영문법 1단계 · 강의 & 확인 테스트</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#f08c2e">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="고딸영문법">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -28,6 +36,7 @@
         <div class="form-error" id="loginError"></div>
         <button class="btn primary big" type="submit">로그인</button>
         <p class="muted small-note">아이디와 비밀번호는 선생님께 받으세요.</p>
+        <button type="button" class="btn install-btn" hidden>📱 앱으로 설치하기</button>
         <p class="small-note" id="setupLinkWrap" hidden>처음 사용하시나요? <a href="#" id="setupLink">선생님 계정 만들기</a></p>
       </form>
 
@@ -89,9 +98,20 @@
         <div><span class="muted">저장 상태</span><strong id="accSync">-</strong></div>
       </div>
       <p class="muted small-note">공부한 기록(시청 진도, 점수, 오답노트)은 자동으로 저장돼요. 다른 기기에서 로그인해도 이어서 공부할 수 있어요.</p>
+      <button type="button" class="btn install-btn" style="margin-top:12px;width:100%" hidden>📱 앱으로 설치하기 (홈 화면에 추가)</button>
       <div class="dialog-foot" style="justify-content:space-between">
         <button type="button" class="btn danger" id="logoutBtn">로그아웃</button>
         <button class="btn primary" value="close">닫기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="installDialog" class="dialog">
+    <form method="dialog">
+      <h2>📱 앱으로 설치하기</h2>
+      <div id="installSteps"></div>
+      <div class="dialog-foot">
+        <button class="btn primary" value="close">확인</button>
       </div>
     </form>
   </dialog>
@@ -108,6 +128,7 @@
   <script src="js/app.js"></script>
   <script src="js/teacher.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/install.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>

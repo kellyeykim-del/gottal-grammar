@@ -445,3 +445,7 @@ details summary { cursor: pointer; color: var(--accent-ink); }
   .pc-btn { min-width: 34px; padding: 0 6px; }
 }
 @media (max-width: 420px) { #pcBack { display: none; } }
+/* ---------- 앱 설치 안내 ---------- */
+.install-btn { width: 100%; }
+.install-steps { margin: 8px 0 12px; padding-left: 20px; line-height: 1.9; }
+.ios-share { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1.5px solid var(--accent); border-radius: 5px; color: var(--accent); font-size: 12px; }
